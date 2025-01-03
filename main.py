@@ -5,7 +5,7 @@ import time
 from transformers import GPT2LMHeadModel
 from model.gpt import GPT
 from model.params import GPTConfig
-from dataloader.shakespeare import DataLoaderLite
+from dataloader.mnbvc import DataLoaderZh
 from utils.lrscheduler import get_lr
 
 # model_hf = GPT2LMHeadModel.from_pretrained("GPT2")
@@ -25,7 +25,7 @@ print(f"using device: {device}")
 
 # gradient accumulation (deal with low memory gpu)
 total_batch_size = 2 ** 19
-B = 2
+B = 16
 T = 1024
 assert total_batch_size % B * T == 0
 grad_accum_steps = total_batch_size // (B * T)
@@ -34,7 +34,7 @@ print(f" => calculated gradient accumulation stepts: {grad_accum_steps}")
 
 
 # load training data
-train_loader = DataLoaderLite(B=4, T=1024)
+train_loader = DataLoaderZh(B=B, T=T, names=["law_judgement", "wikipedia", "news_peoples_daily"])
 
 torch.set_float32_matmul_precision("high")
 model = GPT(GPTConfig())
@@ -61,7 +61,8 @@ for step in range(max_steps):
         param_group["lr"] = lr
 
     optimizer.step()
-    torch.cuda.synchronize()
+    if device == 'cuda':
+        torch.cuda.synchronize()
     t1 = time.time()
     dt = t1 - t0
     tokens_processed = train_loader.B * train_loader.T * grad_accum_steps
